@@ -4,6 +4,8 @@
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
+const pg = require('pg');
+const client = new pg.Client(process.env.SLAPA_D_BASE);
 
 require('dotenv').config();
 
@@ -15,6 +17,9 @@ app.use(cors());
 
 app.listen(PORT, () => console.log(`App is up on ${PORT}`));
 
+client.connect();
+client.on('err', err => console.error(err));
+
 // Define objects
 function Location(data) {
   this.formatted_query = data.formatted_address;
@@ -22,9 +27,21 @@ function Location(data) {
   this.longitude = data.geometry.location.lng;
 }
 
+Location.prototype.store = function (){
+  let sqlCommand = `INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES($1,$2,$3,$4)`;
+  let values = Object.values(this);
+  client.query(sqlCommand, values);
+}
+
 function Weather(day) {
   this.forecast = day.summary;
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
+}
+
+Weather.prototype.store = function() {
+  let sqlCommand = `INSERT INTO weathers (forecast, time) VALUES($1, $2)`;
+  let values = Object.values(this);
+  client.query(sqlCommand, values);
 }
 
 function Yelp(business) {
@@ -33,6 +50,12 @@ function Yelp(business) {
   this.price = business.price;
   this.rating = business.rating;
   this.url = business.url;
+}
+
+Yelp.prototype.store = function(){
+  let sqlCommand = `INSERT INTO yelps (name, image_url, price, rating, url) VALUES($1, $2, $3, $4, $5)`;
+  let values = Object.values(this);
+  client.query(sqlCommand, values);
 }
 
 function Movie(movie) {
@@ -45,13 +68,20 @@ function Movie(movie) {
   this.released_on = movie.release_date;
 }
 
+Movie.prototype.store = function () {
+  let sqlCommand = `INSERT INTO movies (title, overview, average_votes, image_url, popularity, released_on) VALUES($1, 2, $3, $4, $5, $6)`;
+  let values = Object.values(this);
+  client.query(sqlCommand, values);
+}
+
+
+
 // Call event listeners
 
 app.get('/location', (request, response, next) => {
-  getLocation(request.query.data)
+  getLocation(request.query.data, response)
     .then(locationData => response.send(locationData))
     .catch(error => handleError(error, response));
-
 });
 
 app.get('/weather', getWeather);
@@ -62,7 +92,8 @@ app.get('/movies', getMovies);
 
 // Define event handlers
 
-function getLocation(query) {
+
+function getLocation(query, response) {
   const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
   return superagent.get(_URL)
     .then(data => {
@@ -71,9 +102,11 @@ function getLocation(query) {
         let location = new Location(data.body.results[0]);
         location.search_query = query;
         console.log(location);
+        location.store();
         return location;
       }
-    });
+    })
+    .catch(err => handleError(err, response));
 }
 
 function handleError(err, res) {
