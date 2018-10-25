@@ -15,7 +15,7 @@ const app = express();
 
 app.use(cors());
 
-app.listen(PORT, () => console.log(`App is up on ${PORT}`));
+
 
 client.connect();
 client.on('err', err => console.error(err));
@@ -75,27 +75,49 @@ Movie.prototype.store = function () {
 
 // Call event listeners
 
-app.get('/location', (request, response, next) => {
-  getLocation(request.query.data, response)
-    .then(locationData => response.send(locationData))
-    .catch(error => handleError(error, response));
-});
+// app.get('/location', (request, response, next) => {
+//   getLocation(request.query.data, response)
+//     .then(locationData => response.send(locationData))
+//     .catch(error => handleError(error, response));
+// });
+
+app.get('/location', getLocation);
 
 app.get('/weather', getWeather);
 
 app.get('/yelp', getYelp);
 
-app.get('/movies', getMovies);
+//app.get('/movies', getMovies);
 
 // Define event handlers
 
+function getLocation(request, response) {
+  const data = request.query.data;
+  const sqlQuerry = 'SELECT * FROM locations where search_query=$1';
 
-function getLocation(query, response) {
+  client.query(sqlQuerry, [data])
+  .then(results => {
+    if (results.rowCount > 0) {
+      console.log('got from slapa');
+      response.send(results.rows[0]);
+    } else {
+      console.log('getting from api');
+      response.send(fetchLocation(data, response));
+    }
+  })
+  .catch(error => handleError(error));
+}
+
+function fetchLocation(query, response) {
+  console.log('entered fetch location');
   const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
   return superagent.get(_URL)
     .then(data => {
+      console.log('entering if statement');
       if (! data.body.results.length) {throw 'No data'}
+      
       else {
+        console.log('in the else side of things');
         let location = new Location(data.body.results[0]);
         location.search_query = query;
         location.store();
@@ -111,6 +133,7 @@ function handleError(err, res) {
 }
 
 function getWeather(request, response) {
+  console.log(request.query.data);
   const _URL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
   return superagent.get(_URL)
     .then(result => {
@@ -151,3 +174,6 @@ function getMovies(request, response) {
     })
     .catch(error => handleError(error ,response));
 }
+
+
+app.listen(PORT, () => console.log(`App is up on ${PORT}`));
