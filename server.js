@@ -5,9 +5,9 @@ const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
 const pg = require('pg');
+require('dotenv').config();
 const client = new pg.Client(process.env.SLAPA_D_BASE);
 
-require('dotenv').config();
 
 const PORT = process.env.PORT;
 
@@ -19,7 +19,6 @@ app.listen(PORT, () => console.log(`App is up on ${PORT}`));
 
 client.connect();
 client.on('err', err => console.error(err));
-
 // Define objects
 function Location(data) {
   this.formatted_query = data.formatted_address;
@@ -28,7 +27,7 @@ function Location(data) {
 }
 
 Location.prototype.store = function (){
-  let sqlCommand = `INSERT INTO locations (search_query,formatted_query,latitude,longitude) VALUES($1,$2,$3,$4)`;
+  let sqlCommand = `INSERT INTO locations (formatted_query,latitude,longitude, search_query) VALUES($1,$2,$3,$4)`;
   let values = Object.values(this);
   client.query(sqlCommand, values);
 }
@@ -69,12 +68,10 @@ function Movie(movie) {
 }
 
 Movie.prototype.store = function () {
-  let sqlCommand = `INSERT INTO movies (title, overview, average_votes, image_url, popularity, released_on) VALUES($1, 2, $3, $4, $5, $6)`;
+  let sqlCommand = `INSERT INTO movies (title, overview, average_votes, total_votes, image_url, popularity, released_on) VALUES($1, 2, $3, $4, $5, $6)`;
   let values = Object.values(this);
   client.query(sqlCommand, values);
 }
-
-
 
 // Call event listeners
 
@@ -101,7 +98,6 @@ function getLocation(query, response) {
       else {
         let location = new Location(data.body.results[0]);
         location.search_query = query;
-        console.log(location);
         location.store();
         return location;
       }
@@ -114,20 +110,6 @@ function handleError(err, res) {
   if (res) res.status(500).send('Sorry, something went wrong.');
 }
 
-function getYelp(request, response) {
-  const _URL = `https://api.yelp.com/v3/businesses/search?latitude=${request.query.data.latitude}&longitude=${request.query.data.longitude}`;
-  return superagent.get(_URL)
-    .set({'Authorization': `Bearer ${process.env.YELP_API_KEY}`})
-    .then(result => {
-      const businesses = [];
-      result.body.businesses.forEach(biz => {
-        businesses.push(new Yelp(biz));
-      })
-      response.send(businesses);
-    })
-    .catch(error => handleError(error ,response));
-}
-
 function getWeather(request, response) {
   const _URL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`;
   return superagent.get(_URL)
@@ -138,6 +120,20 @@ function getWeather(request, response) {
         weatherSummaries.push(summary);
       });
       response.send(weatherSummaries);
+    })
+    .catch(error => handleError(error ,response));
+}
+
+function getYelp(request, response) {
+  const _URL = `https://api.yelp.com/v3/businesses/search?latitude=${request.query.data.latitude}&longitude=${request.query.data.longitude}`;
+  return superagent.get(_URL)
+    .set({'Authorization': `Bearer ${process.env.YELP_API_KEY}`})
+    .then(result => {
+      const businesses = [];
+      result.body.businesses.forEach(biz => {
+        businesses.push(new Yelp(biz));
+      })
+      response.send(businesses);
     })
     .catch(error => handleError(error ,response));
 }

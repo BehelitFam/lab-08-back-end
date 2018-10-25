@@ -7,10 +7,11 @@ DROP table if EXISTS movies;
 
 CREATE table locations (
     ID serial primary key,
-    search_query varchar(255),
     formatted_query varchar(255),
-    latitude numeric(8,6),
-    longitude numeric(9,6)
+    latitude numeric(11,6),
+    longitude numeric(11,6),
+    search_query varchar(255)
+
 );
 
 CREATE table weathers (
@@ -38,4 +39,3 @@ CREATE table movies (
     popularity numeric(6,4),
     released_on varchar(255)
 );
-
