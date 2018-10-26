@@ -6,7 +6,7 @@ const cors = require('cors');
 const superagent = require('superagent');
 const pg = require('pg');
 require('dotenv').config();
-const client = new pg.Client(process.env.SLAPA_D_BASE);
+const client = new pg.Client(process.env.SLAPA_DBASE);
 
 
 const PORT = process.env.PORT;
